@@ -38,8 +38,24 @@ The matching app harness passed **13 scenarios** with fresh signed SAML assertio
 
 ## Limits
 
-This is local protocol/controller/handler evidence, not a production rollout or live provider/browser acceptance. Microsoft and non-auth boundaries are fixtures. The adjacent gateway OIDC fixture uses public discovery metadata. The entire upstream suite was not run. No deployed identity-provider setting or current Team.domains data was inspected.
+This is local protocol/controller/handler evidence, not a production rollout or live provider/browser acceptance. Microsoft and non-auth boundaries are fixtures. The adjacent gateway OIDC fixture uses public discovery metadata. The entire upstream suite was not run. No deployed identity-provider settings were inspected; the later read-only Team.domains audit is recorded below.
 
 ## Rejected alternatives
 
 Browser routing, raw IdP claims, token audience/subject and per-connection credentials in the existing PKCE/dummy-client flow cannot replace this actual-connection proof. Duplicating domains on gateway records is unnecessary once existing Team.domains is made staff-managed.
+
+## Production domain audit — November 17, 2026
+
+Read-only production replica queries and public SSO discovery checked the existing mappings:
+
+- **72 teams / 166 domains**; no empty lists, malformed values, whitespace/case problems, repeated entries or cross-team conflicts.
+- **72 routing checks** returned the expected team ID; **15 teams** reported SSO configured.
+- **8,195 SAML-linked users with active team memberships**, spanning 27 email domains, all have their stored email domain covered by Team.domains.
+- All domain relationships match the checked-in customer configuration except `oinops.sigmanetcorp.us` on the Okta team. **The author confirmed this is the intentional Okta test domain and must be retained.** Its absence from the customer-config list is a known exception, not a proposed data deletion or repair.
+- No production record correction is currently identified by these checks. No domain/user/configuration record was changed.
+
+This audit checks consistency and observed routing, not actual SAML sign-in, a full private gateway connection inventory, independent domain ownership or historical authorship of every entry. Rerun after #8812 fully deploys and old writable pods are drained, before #5079 rollout; records can still change until that restriction is live. The Okta confirmation does not resolve Austin's separate live-provider/browser test-evidence decision.
+
+## Review readiness at the audited code revision
+
+At `2548c2a7`, no GitHub checks or reviews were reported; this is not a green-CI claim. Local verification remains 276 assertions plus gateway/library types and lint/format checks. No technical blocker to requesting review was identified, and the PR is already non-draft. Its deployment ordering remains a rollout gate, not a reason to postpone review. No review was requested in this task.
