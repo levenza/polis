@@ -83,7 +83,11 @@ export class SSOHandler {
     if (idp_hint) {
       const connection = await this.connection.get(idp_hint);
 
-      if (!connection) {
+      if (
+        !connection ||
+        (tenant !== undefined && connection.tenant !== tenant) ||
+        (product !== undefined && connection.product !== product)
+      ) {
         throw new JacksonError(GENERIC_ERR_STRING, 403, noSSOConnectionErrMessage);
       }
 

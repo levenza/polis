@@ -127,6 +127,23 @@ tap.teardown(async () => {
 });
 
 tap.test('authorize()', async (t) => {
+  for (const mismatch of [{ tenant: 'foreign.example' }, { product: 'foreign-product' }]) {
+    t.test(`rejects idp_hint for a different ${Object.keys(mismatch)[0]}`, async (t) => {
+      const ownConnection = connections.find((record) => record.tenant === boxyhq.tenant);
+      await t.rejects(
+        oauthController.authorize({
+          ...authz_request_normal,
+          tenant: ownConnection.tenant,
+          product: ownConnection.product,
+          ...mismatch,
+          idp_hint: ownConnection.clientID,
+        } as OAuthReq),
+        { statusCode: 403 },
+        'a valid connection ID cannot override tenant or product routing'
+      );
+    });
+  }
+
   t.test('Should throw an error if `redirect_uri` null', async (t) => {
     const body = redirect_uri_not_set;
 

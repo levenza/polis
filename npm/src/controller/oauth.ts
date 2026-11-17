@@ -1169,6 +1169,12 @@ export class OAuthController implements IOAuthController {
       profile,
       clientID: connection.clientID,
       clientSecret: connection.clientSecret,
+      // Keep gateway authority outside the IdP's claims and browser routing.
+      authenticatedConnection: {
+        clientID: connection.clientID,
+        tenant: connection.tenant,
+        product: connection.product,
+      },
       requested,
       isIdPFlow,
     };
@@ -1387,6 +1393,7 @@ export class OAuthController implements IOAuthController {
         ...codeVal.profile,
         requested: codeVal.requested,
         clientID: codeVal.clientID,
+        authenticatedConnection: codeVal.authenticatedConnection,
         login_type,
         protocol,
       };
@@ -1413,6 +1420,7 @@ export class OAuthController implements IOAuthController {
           requested: codeVal.profile.requested,
           ...codeVal.profile.claims,
           id: subject,
+          authenticatedConnection: codeVal.authenticatedConnection,
         };
         const signingKey = await loadJWSPrivateKey(jwtSigningKeys.private, jwsAlg!);
         const kid = await computeKid(jwtSigningKeys.public, jwsAlg!);
@@ -1538,6 +1546,10 @@ export class OAuthController implements IOAuthController {
       throw new JacksonError('Invalid token', 403);
     }
 
-    return { ...rsp.claims, requested: rsp.requested };
+    return {
+      ...rsp.claims,
+      requested: rsp.requested,
+      authenticatedConnection: rsp.authenticatedConnection,
+    };
   }
 }
