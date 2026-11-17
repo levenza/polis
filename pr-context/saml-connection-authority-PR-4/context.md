@@ -1,46 +1,45 @@
-# Authenticated SSO connection and domain authority
+# Authenticated SSO connection authority
 
 ## Summary
 
-Companion to [uno #5079](https://github.com/levenza/uno/pull/5079). The app must know which connection authenticated a login and which email domains that connection is authorized to claim. Both live on the existing SSO connection; no separate app approval registry or environment variable is needed.
+Reduced companion to [uno #5079](https://github.com/levenza/uno/pull/5079). The app uses staff-managed `Team.domains` for domain authority and needs trustworthy proof of which SSO connection authenticated the login. This gateway PR exposes that proof; it adds no domain registry, field or editor.
 
 ## Approach
 
-Store staff-managed `allowedEmailDomains` on SAML and gateway-managed OIDC connections. Normalize exact domains to lowercase; reject wildcards, email addresses, URLs, malformed labels and invalid list values. Explicit empty lists revoke email authority. Metadata-only updates/reuploads preserve staff approval for the same connection, while deletion/recreation starts without approval.
+Carry validated `{ clientID, tenant, product }` outside assertion claims in encrypted authorization-code state and token state. Write it after raw/provider claims in userinfo and signed ID tokens. Reject explicit connection hints naming a different tenant/product. Set a capability header only on successful authenticated HTTP userinfo so old pods cannot satisfy the new app checks by echoing forged fields.
 
-Save `{ clientID, tenant, product, allowedEmailDomains }` from the validated connection outside assertion claims in encrypted authorization-code state, carry it into token state, and write it after raw/provider claims in userinfo and signed ID tokens. Reject explicit connection hints whose tenant/product differs from the request. Mark successful HTTP userinfo responses with a capability header so the app rejects old gateway pods that could echo forged fields.
+Protect gateway configuration too: regular and IdP-initiated admin SAML login must match the configured staff tenant/product, and regular userinfo uses the local patched controller. Only a fresh successful staff sign-in receives the session marker; old JWT refresh cannot upgrade it. Staff pages and admin APIs reject legacy sessions. Staff reauthenticate once after rollout.
 
-Staff manage domains in the existing connection edit page for either SSO protocol. Customer setup pages do not display the field; POST/PATCH attempts to supply it return 403. Admin-session and global API-key routes remain the privileged write paths.
+## Why the companion remains necessary
 
-The gateway's own SAML admin login must authenticate through the configured staff tenant/product. Both regular OAuth and IdP-initiated credentials paths check gateway-owned authority before admitting a session. Regular SAML userinfo uses the local patched controller so older pods cannot supply echoed authority. Only a fresh successful sign-in receives the current staff-session marker; refreshing an old JWT cannot upgrade it. Both staff pages and admin APIs reject legacy sessions, so an old session cannot create a replacement staff connection to approve domains. Staff sign in again once after rollout.
+In pinned base `5433a780171dccf36017c60b50816c713475e0fe`, actual connection clientID is encrypted internally but not returned by userinfo. ID-token audience identifies the requested OAuth client (`dummy` here), while subject/idHash derive from asserted identity. PKCE exchange does not add connection-specific client credential binding. These cannot independently prove which configured company connection authenticated the user.
+
+Protecting gateway admin configuration remains relevant without an allowed-domain field: a non-staff gateway administrator could create/rebind a connection under a trusted Team.id. The old SAML admin path did not enforce staff connection scope. This is a confirmed source boundary issue; deployed settings/exploitability were not inspected.
 
 ## Key decisions
 
-- Base the PR on maintained `v26.2.0-fix/scim-username-dedup-and-scimtype` at pinned base `5433a780171dccf36017c60b50816c713475e0fe`; exclude unrelated mainline changes.
-- Staff verify ownership during the existing SSO onboarding process. The connection field stores that decision; merely entering a domain does not verify ownership automatically.
-- Existing connections have no email authority until staff configure domains. Never derive approval from editable team metadata or requested routing.
-- Deploy this gateway before the app, drain all older gateway pods and verify every remaining pod serves the patched authority, and configure/review domains on each active connection before app rollout.
-- No live connections, environment settings, images or production deployments were changed. Both PRs remain unmerged with auto-merge disabled.
+- Target maintained `v26.2.0-fix/scim-username-dedup-and-scimtype` matching the pinned deployment source, excluding unrelated mainline changes.
+- Domain management stays exclusively in the existing Levenza staff portal's Team.domains workflow. The previous connection field/editor and its screenshot are removed from the PR.
+- Rollout: fully deploy [uno #8812](https://github.com/levenza/uno/pull/8812), drain old customer-write-capable app pods, have staff review existing domain mappings, deploy this gateway and drain its old pods, then deploy #5079 after refreshing its main dependency and remaining review acceptance.
+- Neither this PR nor local test success configures or approves real domains. No production state was changed. Keep all related PRs unmerged.
 
 ## Files changed
 
-- Connection types, shared domain validation, SAML/OIDC controllers: persist staff domain authority.
-- OAuth and SSO handler: actual connection state, claim overwrite, foreign-hint rejection.
-- Production userinfo route: capability header only after successful authentication.
-- Existing connection editor and English locale: staff domain controls.
-- Customer setup API and gateway admin auth: protect privileged authority updates.
-- Scoped controller and actual route/callback regressions: verify persistence, spoof rejection and protected writes.
+- OAuth/SSO controllers and types: encrypted actual-connection identity and assertion overwrite; foreign-hint rejection.
+- Production HTTP userinfo handler: capability header after successful validation.
+- Gateway admin auth/helper/proxy: staff scope and fresh-session boundaries.
+- Scoped regressions: SAML/OIDC/federation authority, actual userinfo/admin callback/proxy behavior.
 
 ## Verification
 
-**301 assertions across 10 scoped suites passed**: SAML/OIDC domain persistence, signed authority overwrite, foreign hints, production userinfo, customer setup restrictions, actual admin SAML callbacks, legacy/fresh staff-session proxy boundaries, and adjacent OIDC/federation cases. The app's final disposable protocol suite passed **12 scenarios** with fresh signed SAML assertions, actual gateway controllers, real NextAuth callbacks, guarded Prisma adapter and isolated Postgres. Source is pinned base plus the companion patch; automatic teardown removes the temporary containers and checkout.
+**276 assertions across 7 scoped suites passed**, including both SAML OAuth suites, adjacent OIDC/federation, actual production userinfo, admin SAML callbacks and staff-session proxy boundaries. Full gateway and library TypeScript checks, targeted ESLint, Prettier and source whitespace checks passed.
 
-Full gateway and library TypeScript checks, targeted ESLint, Prettier and source whitespace checks pass. Actual local staff UI smoke passed: save/reload normalized and deduplicated domains, wildcard rejection retained prior values, and clearing domains persisted. The fake in-memory server and browser were stopped. Five console errors were observed but not classified; no console-clean claim is made. An independent focused source review found no remaining concrete bypass in the authenticated connection/domain flow or customer setup routes.
+The matching app harness passed **13 scenarios** with fresh signed SAML assertions, actual gateway controllers, real NextAuth callbacks, guarded Prisma adapter and isolated Postgres. The app suite snapshots team/domain state as well as users/accounts/memberships and session absence; it checks missing staff configuration and subsequent domain removal.
 
 ## Limits
 
-The app harness is an HTTP protocol driver, not a rendered-browser or production test. Microsoft and non-auth service boundaries are fixtures. The reconnect scenario removes a disposable Account row, not the human-only operational unlink command. The adjacent gateway OIDC fixture uses public discovery metadata. No deployed configuration or exploitability was inspected. Existing historical mutation tests and prior results apply to the earlier connection-identity revision; current results must not be inferred from them.
+This is local protocol/controller/handler evidence, not a production rollout or live provider/browser acceptance. Microsoft and non-auth boundaries are fixtures. The adjacent gateway OIDC fixture uses public discovery metadata. The entire upstream suite was not run. No deployed identity-provider setting or current Team.domains data was inspected.
 
 ## Rejected alternatives
 
-Requested routing and raw IdP/provider attributes cannot prove authority. A customer-editable team domain cannot establish ownership. A separate app registry duplicates the connection setup and adds maintenance. A new JSON field without the capability header would allow an old gateway to echo forged authority.
+Browser routing, raw IdP claims, token audience/subject and per-connection credentials in the existing PKCE/dummy-client flow cannot replace this actual-connection proof. Duplicating domains on gateway records is unnecessary once existing Team.domains is made staff-managed.

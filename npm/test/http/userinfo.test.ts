@@ -16,7 +16,6 @@ const profile = {
     clientID: 'test-connection',
     tenant: 'example.test',
     product: 'test-product',
-    allowedEmailDomains: ['example.test'],
   },
 };
 

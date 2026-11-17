@@ -16,11 +16,6 @@ const withSetupLink = (
 };
 
 const handler = async (req: NextApiRequest, res: NextApiResponse) => {
-  if (['POST', 'PATCH'].includes(req.method || '') && 'allowedEmailDomains' in req.body) {
-    res.status(403).json({ error: { message: 'Only gateway staff may approve email domains' } });
-    return;
-  }
-
   await defaultHandler(req, res, {
     GET: withSetupLink(handleGET),
     POST: withSetupLink(handlePOST),

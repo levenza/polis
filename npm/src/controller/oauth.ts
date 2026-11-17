@@ -1174,7 +1174,6 @@ export class OAuthController implements IOAuthController {
         clientID: connection.clientID,
         tenant: connection.tenant,
         product: connection.product,
-        allowedEmailDomains: connection.allowedEmailDomains ?? [],
       },
       requested,
       isIdPFlow,

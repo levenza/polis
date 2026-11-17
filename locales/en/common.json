@@ -258,10 +258,5 @@
   "bui-sl-link-expired": "This link has expired",
   "bui-sl-link-expire-on": "This link will expire on {{expiresAt}}.",
   "bui-sl-share-link-info": "Share this link with your customer to setup their service",
-  "bui-sl-webhook-url": "Webhook URL",
-  "allowed_email_domains": "Allowed email domains",
-  "allowed_email_domains_help": "Enter one domain per line after verifying this organization owns it. This connection can sign users in only for these exact domains. An empty list blocks SSO sign-in to Levenza. Customers cannot change this approval through a setup link.",
-  "allowed_email_domains_saved": "Allowed email domains saved",
-  "allowed_email_domains_save_error": "Unable to save allowed email domains",
-  "save_allowed_email_domains": "Save allowed email domains"
+  "bui-sl-webhook-url": "Webhook URL"
 }

@@ -63,15 +63,6 @@ tap.before(async () => {
   connectionAPIController = controller.connectionAPIController;
   oauthController = controller.oauthController;
   connections = await addSSOConnections(metadataPath, connectionAPIController);
-  for (const connection of connections.filter((record) => 'idpMetadata' in record)) {
-    await connectionAPIController.updateSAMLConnection({
-      clientID: connection.clientID,
-      clientSecret: connection.clientSecret,
-      tenant: connection.tenant,
-      product: connection.product,
-      allowedEmailDomains: ['example.com'],
-    });
-  }
 });
 
 tap.teardown(async () => {
@@ -109,7 +100,6 @@ tap.test('token()', async (t) => {
               clientID: 'forged-connection',
               tenant: 'victim.example',
               product: 'forged-product',
-              allowedEmailDomains: ['victim.example'],
             },
           },
           issuer: '',
@@ -140,7 +130,6 @@ tap.test('token()', async (t) => {
             clientID: connection.clientID,
             tenant: connection.tenant,
             product: connection.product,
-            allowedEmailDomains: ['example.com'],
           },
           'userinfo authority comes from the actual connection, overriding flattened assertions'
         );
@@ -187,7 +176,6 @@ tap.test('token()', async (t) => {
               clientID: 'forged-connection',
               tenant: 'victim.example',
               product: 'forged-product',
-              allowedEmailDomains: ['victim.example'],
             },
           },
           issuer: '',
@@ -216,7 +204,6 @@ tap.test('token()', async (t) => {
               clientID: connection.clientID,
               tenant: connection.tenant,
               product: connection.product,
-              allowedEmailDomains: ['example.com'],
             },
             'signed ID token authority overrides the IdP claims'
           );
