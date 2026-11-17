@@ -6,7 +6,7 @@ Reduced companion to [uno #5079](https://github.com/levenza/uno/pull/5079). The 
 
 ## Approach
 
-Carry validated `{ clientID, tenant, product }` outside assertion claims in encrypted authorization-code state and token state. Write it after raw/provider claims in userinfo and signed ID tokens. Reject explicit connection hints naming a different tenant/product. Set a capability header only on successful authenticated HTTP userinfo so old pods cannot satisfy the new app checks by echoing forged fields.
+Carry validated `{ clientID, tenant, product }` outside assertion claims in encrypted authorization-code state and token state. Write it after raw/provider claims in userinfo and signed ID tokens. Reject explicit connection hints outside the caller's trusted tenant/product scope. Ordinary OAuth has one tenant; federation apps may authorize multiple stored tenants. Set a capability header only on successful authenticated HTTP userinfo so old pods cannot satisfy the new app checks by echoing forged fields.
 
 Protect gateway configuration too: regular and IdP-initiated admin SAML login must match the configured staff tenant/product, and regular userinfo uses the local patched controller. Only a fresh successful staff sign-in receives the session marker; old JWT refresh cannot upgrade it. Staff pages and admin APIs reject legacy sessions. Staff reauthenticate once after rollout.
 
@@ -59,3 +59,13 @@ This audit checks consistency and observed routing, not actual SAML sign-in, a f
 ## Review readiness at the audited code revision
 
 At `2548c2a7`, no GitHub checks or reviews were reported; this is not a green-CI claim. Local verification remains 276 assertions plus gateway/library types and lint/format checks. No technical blocker to requesting review was identified, and the PR is already non-draft. Its deployment ordering remains a rollout gate, not a reason to postpone review. No review was requested in this task.
+
+## Local review fix — federation tenant scope
+
+The local review at `365f495` found that the new hint guard incorrectly required a federation connection to match the primary tenant even when the stored federation application authorized a secondary tenant. The public SAML and OIDC entry points both reproduced the rejection before the fix.
+
+The resolver now checks nonempty, server-owned federation tenant sets when supplied, retains product validation, and preserves the single-tenant check for ordinary OAuth. Browser-supplied tenant lists remain inside the untrusted request data and cannot widen the resolver scope. New public-entry regressions prove the selected secondary upstream is used and foreign tenant/product hints still reject.
+
+Expanded verification: **364 assertions across 10 authentication suites passed**, plus gateway/library TypeScript, scoped ESLint, Prettier and source whitespace checks. The app's matching disposable harness passed all **13 scenarios** after updating its pinned source patch. An independent reviewer verified the fix before publication; final follow-up review is local-only with no GitHub review/status posts.
+
+At the author's explicit request this PR is ready for review, with no reviewer request and no merge. The earlier automated status comment is historical and does not initiate a new handoff.

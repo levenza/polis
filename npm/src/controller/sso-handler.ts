@@ -57,7 +57,7 @@ export class SSOHandler {
     idFedAppId?: string;
     fedType?: string;
     thirdPartyLogin?: { idpInitiatorType?: 'oidc' | 'saml'; iss?: string; target_link_uri?: string };
-    tenants?: string[]; // Only used for SAML IdP initiated flow
+    tenants?: string[]; // Trusted tenant scope from a stored federation app, never browser parameters
     ssoTraces?: { instance: SSOTracesInstance; context: SSOTrace['context'] };
   }): Promise<
     { connection: SAMLSSORecord | OIDCSSORecord } | { redirectUrl: string } | { postForm: string }
@@ -85,7 +85,9 @@ export class SSOHandler {
 
       if (
         !connection ||
-        (tenant !== undefined && connection.tenant !== tenant) ||
+        (tenants && tenants.length > 0
+          ? !tenants.includes(connection.tenant)
+          : tenant !== undefined && connection.tenant !== tenant) ||
         (product !== undefined && connection.product !== product)
       ) {
         throw new JacksonError(GENERIC_ERR_STRING, 403, noSSOConnectionErrMessage);
