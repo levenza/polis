@@ -328,6 +328,8 @@ export interface Profile {
   roles?: string[];
   groups?: string[];
   requested: Record<string, string>;
+  /** Gateway-owned connection that validated this login, never assertion-supplied. */
+  authenticatedConnection?: { clientID: string; tenant: string; product: string };
   raw: any;
 }
 

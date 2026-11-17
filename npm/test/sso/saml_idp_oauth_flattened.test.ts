@@ -24,6 +24,7 @@ import {
   clientToken,
 } from './fixture';
 import { addSSOConnections, jacksonOptions } from '../utils';
+import boxyhq from './data/metadata/boxyhq';
 import type { GenerateKeyPairResult } from 'jose';
 
 let connectionAPIController: IConnectionAPIController;
@@ -95,6 +96,11 @@ tap.test('token()', async (t) => {
           claims: {
             id: '123',
             custom_attribute: 'custom_attribute',
+            authenticatedConnection: {
+              clientID: 'forged-connection',
+              tenant: 'victim.example',
+              product: 'forged-product',
+            },
           },
           issuer: '',
           sessionIndex: '',
@@ -117,6 +123,16 @@ tap.test('token()', async (t) => {
         t.match(tokenRes.expires_in, 300);
 
         const profile = await oauthController.userInfo(tokenRes.access_token);
+        const connection = connections.find((record) => record.clientID === body.client_id);
+        t.same(
+          profile.authenticatedConnection,
+          {
+            clientID: connection.clientID,
+            tenant: connection.tenant,
+            product: connection.product,
+          },
+          'userinfo authority comes from the actual connection, overriding flattened assertions'
+        );
         t.notOk('sub' in profile, 'does not include sub');
         t.equal(profile.requested.client_id, authz_request_normal.client_id);
         t.equal(profile.requested.state, authz_request_normal.state);
@@ -156,6 +172,11 @@ tap.test('token()', async (t) => {
             lastName: 'doe',
             email: 'johndoe@example.com',
             custom_attribute: 'custom_attribute',
+            authenticatedConnection: {
+              clientID: 'forged-connection',
+              tenant: 'victim.example',
+              product: 'forged-product',
+            },
           },
           issuer: '',
           sessionIndex: '',
@@ -176,6 +197,16 @@ tap.test('token()', async (t) => {
 
         if (tokenRes.id_token) {
           const claims = jose.decodeJwt(tokenRes.id_token);
+          const connection = connections.find((record) => record.tenant === boxyhq.tenant);
+          t.same(
+            claims.authenticatedConnection,
+            {
+              clientID: connection.clientID,
+              tenant: connection.tenant,
+              product: connection.product,
+            },
+            'signed ID token authority overrides the IdP claims'
+          );
           const { protectedHeader } = await jose.jwtVerify(tokenRes.id_token, keyPair.publicKey);
           t.match(protectedHeader.alg, jacksonOptions.openid?.jwsAlg);
           t.match(claims.aud, authz_request_normal_oidc_flow.client_id);

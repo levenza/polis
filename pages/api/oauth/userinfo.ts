@@ -29,6 +29,9 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const profile = await oauthController.userInfo(token);
 
+    // Lets consumers fail closed while old gateway pods still serve userinfo.
+    // This capability is an HTTP header, not a spoofable SAML attribute.
+    res.setHeader('X-Levenza-Saml-Authority', '1');
     res.json(profile);
   } catch (err: any) {
     logger.error(err, 'Userinfo error');

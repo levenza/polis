@@ -6,7 +6,8 @@ import CredentialsProvider from 'next-auth/providers/credentials';
 import BoxyHQSAMLProvider from 'next-auth/providers/boxyhq-saml';
 import jackson from '@lib/jackson';
 import { validateEmailWithACL } from '@lib/utils';
-import { jacksonOptions as env } from '@lib/env';
+import { jacksonOptions as env, adminPortalSSODefaults } from '@lib/env';
+import { isAdminSamlConnection, STAFF_SESSION_AUTHORITY } from '@lib/admin-saml-authority';
 import { sessionName } from '@lib/constants';
 
 export default NextAuth({
@@ -23,6 +24,16 @@ export default NextAuth({
         timeout: 30000,
       },
       allowDangerousEmailAccountLinking: true,
+      userinfo: {
+        async request({ tokens }) {
+          if (!tokens.access_token) {
+            throw new Error('SAML admin login requires an access token');
+          }
+          // Use this gateway's controller so old pods cannot echo forged authority claims.
+          const { oauthController } = await jackson();
+          return oauthController.userInfo(tokens.access_token);
+        },
+      },
     }),
     CredentialsProvider({
       id: 'boxyhq-saml-idplogin',
@@ -57,7 +68,7 @@ export default NextAuth({
         // Fetch user info
         const userInfo = await oauthController.userInfo(access_token);
 
-        if (!userInfo) {
+        if (!isAdminSamlConnection(userInfo, adminPortalSSODefaults)) {
           return null;
         }
 
@@ -152,17 +163,24 @@ export default NextAuth({
     },
   },
   callbacks: {
-    async signIn({ user, account }): Promise<boolean> {
+    async jwt({ token, account }) {
+      // Only initial, successful sign-in may upgrade authority; never refresh a legacy JWT.
+      if (account) {
+        token.staffSessionAuthority = STAFF_SESSION_AUTHORITY;
+      }
+      return token;
+    },
+    async signIn({ user, account, profile }): Promise<boolean> {
       if (!user.email) {
         return false;
       }
 
-      // Bypass ACL for credentials and boxyhq-saml (including IdP login)
-      if (
-        account?.provider === 'credentials' ||
-        account?.provider === 'boxyhq-saml' ||
-        account?.provider === 'boxyhq-saml-idplogin'
-      ) {
+      if (account?.provider === 'boxyhq-saml') {
+        return isAdminSamlConnection(profile, adminPortalSSODefaults);
+      }
+
+      // IdP-login credentials already verified the actual staff SAML connection.
+      if (account?.provider === 'credentials' || account?.provider === 'boxyhq-saml-idplogin') {
         return true;
       }
 
