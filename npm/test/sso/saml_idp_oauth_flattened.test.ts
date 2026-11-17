@@ -63,6 +63,15 @@ tap.before(async () => {
   connectionAPIController = controller.connectionAPIController;
   oauthController = controller.oauthController;
   connections = await addSSOConnections(metadataPath, connectionAPIController);
+  for (const connection of connections.filter((record) => 'idpMetadata' in record)) {
+    await connectionAPIController.updateSAMLConnection({
+      clientID: connection.clientID,
+      clientSecret: connection.clientSecret,
+      tenant: connection.tenant,
+      product: connection.product,
+      allowedEmailDomains: ['example.com'],
+    });
+  }
 });
 
 tap.teardown(async () => {
@@ -100,6 +109,7 @@ tap.test('token()', async (t) => {
               clientID: 'forged-connection',
               tenant: 'victim.example',
               product: 'forged-product',
+              allowedEmailDomains: ['victim.example'],
             },
           },
           issuer: '',
@@ -124,11 +134,16 @@ tap.test('token()', async (t) => {
 
         const profile = await oauthController.userInfo(tokenRes.access_token);
         const connection = connections.find((record) => record.clientID === body.client_id);
-        t.same(profile.authenticatedConnection, {
-          clientID: connection.clientID,
-          tenant: connection.tenant,
-          product: connection.product,
-        }, 'userinfo authority comes from the actual connection, overriding flattened assertions');
+        t.same(
+          profile.authenticatedConnection,
+          {
+            clientID: connection.clientID,
+            tenant: connection.tenant,
+            product: connection.product,
+            allowedEmailDomains: ['example.com'],
+          },
+          'userinfo authority comes from the actual connection, overriding flattened assertions'
+        );
         t.notOk('sub' in profile, 'does not include sub');
         t.equal(profile.requested.client_id, authz_request_normal.client_id);
         t.equal(profile.requested.state, authz_request_normal.state);
@@ -172,6 +187,7 @@ tap.test('token()', async (t) => {
               clientID: 'forged-connection',
               tenant: 'victim.example',
               product: 'forged-product',
+              allowedEmailDomains: ['victim.example'],
             },
           },
           issuer: '',
@@ -194,11 +210,16 @@ tap.test('token()', async (t) => {
         if (tokenRes.id_token) {
           const claims = jose.decodeJwt(tokenRes.id_token);
           const connection = connections.find((record) => record.tenant === boxyhq.tenant);
-          t.same(claims.authenticatedConnection, {
-            clientID: connection.clientID,
-            tenant: connection.tenant,
-            product: connection.product,
-          }, 'signed ID token authority overrides the IdP claims');
+          t.same(
+            claims.authenticatedConnection,
+            {
+              clientID: connection.clientID,
+              tenant: connection.tenant,
+              product: connection.product,
+              allowedEmailDomains: ['example.com'],
+            },
+            'signed ID token authority overrides the IdP claims'
+          );
           const { protectedHeader } = await jose.jwtVerify(tokenRes.id_token, keyPair.publicKey);
           t.match(protectedHeader.alg, jacksonOptions.openid?.jwsAlg);
           t.match(claims.aud, authz_request_normal_oidc_flow.client_id);

@@ -18,6 +18,7 @@ import {
   validateSortOrder,
 } from '../utils';
 import { JacksonError } from '../error';
+import { normalizeAllowedEmailDomains } from './email-domains';
 
 const oidc = {
   create: async (
@@ -25,6 +26,8 @@ const oidc = {
     connectionStore: Storable
   ) => {
     validateSSOConnection(body, 'oidc');
+    const allowedEmailDomains =
+      'allowedEmailDomains' in body ? normalizeAllowedEmailDomains(body.allowedEmailDomains) : undefined;
 
     const {
       defaultRedirectUrl,
@@ -93,6 +96,7 @@ const oidc = {
     }
 
     record.clientSecret = connectionClientSecret;
+    record.allowedEmailDomains = allowedEmailDomains ?? exists?.allowedEmailDomains ?? [];
 
     await connectionStore.put(
       record.clientID,
@@ -196,6 +200,10 @@ const oidc = {
       redirectUrl: redirectUrlList ? redirectUrlList : _savedConnection.redirectUrl,
       oidcProvider: oidcProvider ? oidcProvider : _savedConnection.oidcProvider,
     };
+
+    if ('allowedEmailDomains' in body) {
+      record.allowedEmailDomains = normalizeAllowedEmailDomains(body.allowedEmailDomains);
+    }
 
     if ('sortOrder' in body) {
       record.sortOrder = parseInt(body.sortOrder as any);

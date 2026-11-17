@@ -138,7 +138,7 @@ tap.test('authorize()', async (t) => {
           ...mismatch,
           idp_hint: ownConnection.clientID,
         } as OAuthReq),
-        { statusCode: 403 },
+        { message: GENERIC_ERR_STRING, statusCode: 403 },
         'a valid connection ID cannot override tenant or product routing'
       );
     });

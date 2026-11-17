@@ -25,6 +25,7 @@ import {
   validateSSOURL,
 } from '../utils';
 import { JacksonError } from '../error';
+import { normalizeAllowedEmailDomains } from './email-domains';
 
 async function fetchMetadata(resource: string) {
   try {
@@ -118,6 +119,8 @@ const saml = {
       samlAudienceOverride,
     } = body;
     const forceAuthn = body.forceAuthn == 'true' || body.forceAuthn == true;
+    const allowedEmailDomains =
+      'allowedEmailDomains' in body ? normalizeAllowedEmailDomains(body.allowedEmailDomains) : undefined;
 
     let connectionClientSecret: string;
 
@@ -200,6 +203,8 @@ const saml = {
     }
 
     record.clientSecret = connectionClientSecret;
+    // Re-uploading metadata must preserve staff approval for the same connection.
+    record.allowedEmailDomains = allowedEmailDomains ?? exists?.allowedEmailDomains ?? [];
 
     await connectionStore.put(
       record.clientID,
@@ -315,6 +320,10 @@ const saml = {
       redirectUrl: redirectUrlList ? redirectUrlList : _savedConnection.redirectUrl,
       forceAuthn: typeof forceAuthn === 'boolean' ? forceAuthn : _savedConnection.forceAuthn,
     };
+
+    if ('allowedEmailDomains' in body) {
+      record.allowedEmailDomains = normalizeAllowedEmailDomains(body.allowedEmailDomains);
+    }
 
     if ('sortOrder' in body) {
       record.sortOrder = parseInt(body.sortOrder as any);

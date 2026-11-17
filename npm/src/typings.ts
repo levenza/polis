@@ -23,6 +23,8 @@ export interface OryConfig extends OryRes {
 }
 
 export interface SSOConnection {
+  /** Staff-approved exact email domains; absent/empty grants no email authority. */
+  allowedEmailDomains?: string[];
   defaultRedirectUrl: string;
   redirectUrl: string[] | string;
   tenant: string;
@@ -120,6 +122,7 @@ export type GetConfigQuery = ClientIDQuery | Omit<TenantQuery, 'strategy'>;
 export type DelConfigQuery = (ClientIDQuery & { clientSecret: string }) | Omit<TenantQuery, 'strategy'>;
 
 export type UpdateConnectionParams = TenantProduct & {
+  allowedEmailDomains?: string[];
   clientID: string;
   clientSecret: string;
   name?: string;
@@ -329,7 +332,12 @@ export interface Profile {
   groups?: string[];
   requested: Record<string, string>;
   /** Gateway-owned connection that validated this login, never assertion-supplied. */
-  authenticatedConnection?: { clientID: string; tenant: string; product: string };
+  authenticatedConnection?: {
+    clientID: string;
+    tenant: string;
+    product: string;
+    allowedEmailDomains: string[];
+  };
   raw: any;
 }
 

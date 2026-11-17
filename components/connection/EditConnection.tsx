@@ -5,6 +5,7 @@ import { LinkBack } from '@boxyhq/internal-ui';
 import type { OIDCSSORecord, SAMLSSORecord } from '@boxyhq/saml-jackson';
 import { EditSAMLConnection, EditOIDCConnection } from '@boxyhq/react-ui/sso';
 import { BOXYHQ_UI_CSS } from '@components/styles';
+import AllowedEmailDomains from './AllowedEmailDomains';
 
 type EditProps = {
   connection: SAMLSSORecord | OIDCSSORecord;
@@ -44,6 +45,9 @@ const EditConnection = ({ connection, setupLinkToken, isSettingsView = false }: 
           </h2>
         </div>
         <div className='min-w-[28rem] rounded border border-gray-200 bg-white p-6 dark:border-gray-700 dark:bg-gray-800'>
+          {(connectionIsSAML || connectionIsOIDC) && !setupLinkToken && (
+            <AllowedEmailDomains connection={connection} />
+          )}
           {connectionIsSAML && (
             <EditSAMLConnection
               displayHeader={false}
